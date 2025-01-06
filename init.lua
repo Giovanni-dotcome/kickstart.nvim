@@ -103,8 +103,9 @@ vim.opt.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
 vim.opt.relativenumber = true
-vim.opt.foldmethod = 'expr'
-vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+-- vim.opt.foldmethod = 'expr'
+-- vim.opt.foldexpr = 'nvim_treesitter#foldexpr()'
+-- vim.opt.foldlevelstart = 1
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.opt.mouse = 'a'
@@ -228,6 +229,142 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+  'kevinhwang91/promise-async',
+  'jiangmiao/auto-pairs',
+  {
+    'rmagatti/auto-session',
+    lazy = false,
+
+    ---enables autocomplete for opts
+    ---@module "auto-session"
+    ---@type AutoSession.Config
+    opts = {
+      suppressed_dirs = { '~/', '~/Projects', '~/Downloads', '/' },
+      -- log_level = 'debug',
+    },
+  },
+  {
+    'kdheepak/lazygit.nvim',
+    lazy = true,
+    cmd = {
+      'LazyGit',
+      'LazyGitConfig',
+      'LazyGitCurrentFile',
+      'LazyGitFilter',
+      'LazyGitFilterCurrentFile',
+    },
+    -- optional for floating window border decoration
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+    },
+    -- setting the keybinding for LazyGit with 'keys' is recommended in
+    -- order to load the plugin when the command is run for the first time
+    keys = {
+      { '<leader>gg', '<cmd>LazyGit<cr>', desc = 'LazyGit' },
+    },
+  },
+  {
+    'stevearc/oil.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    config = function()
+      require('oil').setup {
+        columns = { 'icon' },
+        show_options = {
+          show_hidden = true,
+        },
+        vim.keymap.set('n', '-', require('oil').toggle_float),
+        vim.keymap.set('n', 'q', '<cmd>q<cr>'),
+      }
+    end,
+  },
+  {
+    'Pocco81/auto-save.nvim',
+    opts = {
+      enabled = true, -- start auto-save when the plugin is loaded (i.e. when your package manager loads it)
+      execution_message = {
+        message = function() -- message to print on save
+          return ('AutoSave: saved at ' .. vim.fn.strftime '%H:%M:%S')
+        end,
+        dim = 0.18, -- dim the color of `message`
+        cleaning_interval = 1250, -- (milliseconds) automatically clean MsgArea after displaying `message`. See :h MsgArea
+      },
+      trigger_events = { 'InsertLeave', 'TextChanged' }, -- vim events that trigger auto-save. See :h events
+      -- function that determines whether to save the current buffer or not
+      -- return true: if buffer is ok to be saved
+      -- return false: if it's not ok to be saved
+      condition = function(buf)
+        local fn = vim.fn
+        local utils = require 'auto-save.utils.data'
+
+        if fn.getbufvar(buf, '&modifiable') == 1 and utils.not_in(fn.getbufvar(buf, '&filetype'), {}) then
+          return true -- met condition(s), can save
+        end
+        return false -- can't save
+      end,
+      write_all_buffers = false, -- write all buffers when the current one meets `condition`
+      debounce_delay = 135, -- saves the file at most every `debounce_delay` milliseconds
+      callbacks = { -- functions to be executed at different intervals
+        enabling = nil, -- ran when enabling auto-save
+        disabling = nil, -- ran when disabling auto-save
+        before_asserting_save = nil, -- ran before checking `condition`
+        before_saving = nil, -- ran before doing the actual save
+        after_saving = nil, -- ran after doing the actual save
+      },
+    },
+  },
+  {
+    'kevinhwang91/nvim-ufo',
+    requires = 'kevinhwang91/promise-async',
+    opts = {
+      foldcolumn = '1',
+      foldlevel = 99,
+      foldlevelstart = 99,
+      foldenable = true,
+    },
+    config = function(_, opts)
+      -- Set fold-related options
+      vim.o.foldcolumn = opts.foldcolumn
+      vim.o.foldlevel = opts.foldlevel
+      vim.o.foldlevelstart = opts.foldlevelstart
+      vim.o.foldenable = opts.foldenable
+      -- vim.o.foldmethod = 'manual'
+
+      -- Add LSP foldingRange capability
+      local capabilities = vim.lsp.protocol.make_client_capabilities()
+      capabilities.textDocument.foldingRange = {
+        dynamicRegistration = false,
+        lineFoldingOnly = true,
+      }
+
+      -- Enable LSP folding for all active servers
+      local lspconfig = require 'lspconfig'
+      local servers = lspconfig.util.available_servers() -- Detect all installed servers
+      for _, server in ipairs(servers) do
+        lspconfig[server].setup {
+          capabilities = capabilities,
+        }
+      end
+
+      -- Set up nvim-ufo
+      require('ufo').setup()
+
+      -- Keybindings for default Vim fold commands with nvim-ufo extensions
+      vim.keymap.set('n', 'zR', require('ufo').openAllFolds, { desc = 'Open all folds' })
+      vim.keymap.set('n', 'zM', require('ufo').closeAllFolds, { desc = 'Close all folds' })
+      vim.keymap.set('n', 'zr', require('ufo').openFoldsExceptKinds, { desc = 'Reduce fold level' })
+      vim.keymap.set('n', 'zm', require('ufo').closeFoldsWith, { desc = 'Increase fold level' })
+
+      -- Default z bindings
+      vim.keymap.set('n', 'za', 'za', { desc = 'Toggle fold under cursor' })
+      vim.keymap.set('n', 'zo', 'zo', { desc = 'Open fold under cursor' })
+      vim.keymap.set('n', 'zO', 'zO', { desc = 'Open all folds under cursor recursively' })
+      vim.keymap.set('n', 'zc', 'zc', { desc = 'Close fold under cursor' })
+      vim.keymap.set('n', 'zC', 'zC', { desc = 'Close all folds under cursor recursively' })
+      vim.keymap.set('n', 'zv', 'zv', { desc = 'Open folds for cursor position' })
+      vim.keymap.set('n', 'zx', 'zx', { desc = 'Recompute folds and close others' })
+      vim.keymap.set('n', 'zX', 'zX', { desc = 'Recompute folds and close all' })
+    end,
+  },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -352,10 +489,12 @@ require('lazy').setup({
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
+      { 'sharkdp/fd' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
+
     config = function()
       -- Telescope is a fuzzy finder that comes with a lot of different things that
       -- it can fuzzy find! It's more than just a "file finder", it can search
@@ -537,11 +676,12 @@ require('lazy').setup({
 
           -- Rename the variable under your cursor.
           --  Most Language Servers support renaming across files, etc.
-          map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
+          -- map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
 
           -- Execute a code action, usually your cursor needs to be on top of an error
           -- or a suggestion from your LSP for this to activate.
           map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction', { 'n', 'x' })
+          map('<leader>cr', vim.lsp.buf.rename, '[C]ode [R]ename', { 'n', 'x' })
 
           -- WARN: This is not Goto Definition, this is Goto Declaration.
           --  For example, in C this would take you to the header.
